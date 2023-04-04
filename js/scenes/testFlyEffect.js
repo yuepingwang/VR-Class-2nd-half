@@ -1,46 +1,153 @@
 /******************************************************************
 
- This demo shows you how to procedurally texture
- different objects in your scene.
+ This demo shows how you can embed an entire ray tracer
+ inside the fragment shader.
 
- To associate an object with shader code, you
- declare a flag for that shader code in your
- fragment shader, and set that flag to true
- for any object that uses it.
+ As with any change to the fragment shader, you need to
+ set a flag (in this case uRayTrace) so that the ray tracing
+ code will run only for the object(s) that you select.
 
- In the example below, there are three cubes.
- The first is untextured, the second has a noise
- texture, and the third has a stripe texture.
-
- Note that all the shader code is declared
- in the same customShader, and the flags are
- used to turn any given texture on or off for
- various objects in the scene.
+ You can also see here how to toggle Heads-Up Display (HUD)
+ mode for the object that is running the ray tracing shader
+ code, by using 'h' mode toggle.
 
  ******************************************************************/
 
 export const init = async model => {
-    let box0 = model.add('cube'); // Untextured box
-    let box1 = model.add('cube'); // Noise textured box
-    let box2 = model.add('cube'); // Stripe textured box
+    let screen = model.add('cube');
+    let isHUD = true;
+    model.control('h', 'toggle HUD', () => isHUD = ! isHUD);
 
     model.animate(() => {
-        box1.flag('uNoiseTexture');
-        box2.flag('uStripeTexture');
+        let m = views[0]._viewMatrix, c = .5*Math.cos(model.time), s = .5*Math.sin(model.time);
+        if (isHUD)
+            model.hud();
+        else
+            model.setMatrix([m[0],m[4],m[8],0,m[1],m[5],m[9],0,m[2],m[6],m[10],0,0,1.6,-1,1]);
+        model.scale(.4,.4,.0001);
+
+        model.flag('uRayTrace');
+        model.setUniform('4fv','uL', [.5,.5,.5,1., -.5,-.5,-.5,.2, .7,-.7,0,.2, -.7,.7,0,.2]);
+        model.setUniform('4fv','uS', [c,s,0,0, s,0,c,0, 0,c,s,0, -c,-s,0,0]);
+        model.setUniform('4fv','uC', [1,1,0,2., 0,1,1,2, 1,0,1,2, 0,1,0,2]);
 
         model.customShader(`
-         uniform int uNoiseTexture;	// Put any declarations or functions
-         uniform int uStripeTexture;    // before the dashed line.
-         --------------------------
-         if (uNoiseTexture == 1)
-            color *= .5 + noise(3. * vAPos);
-         if (uStripeTexture == 1)
-            color *= .5 + .5 * sin(10. * vAPos.x);
-      `);
+        #define ITR 60
+        #define FAR 100.
+        #define time iTime*0.2
+        #define USE_BOUND_PLANE
 
-        box0.identity().move(-.4,1.6,0).turnY(model.time).turnX(model.time).scale(.1);
-        box1.identity().move( .0,1.6,0).turnY(model.time).turnX(model.time).scale(.1);
-        box2.identity().move( .4,1.6,0).turnY(model.time).turnX(model.time).scale(.1);
+        const mat2 m2 = mat2(1.6,-1.2,1.2,1.6);
+        
+        float noi( in vec2 p )
+        {
+            return 0.5*(cos(6.2831*p.x) + cos(6.2831*p.y));
+        }
+        
+         uniform int uRayTrace;
+         uniform vec4 uC[4], uL[4], uS[4];
+         vec4 light[4], sphere[4];
+         float raySphere(vec3 V, vec3 W, vec4 S) {
+            V -= S.xyz;
+            float b = dot(V, W);
+            float d = b * b - dot(V, V) + S.w * S.w;
+            return d < 0. ? -1. : -b - sqrt(d);
+         }
+         vec3 shadeSphere(vec3 p, vec4 s, vec4 c) {
+            vec3 N = normalize(p - s.xyz);
+            vec3 color = .1 * c.rgb;
+            for (int l = 0 ; l < 4 ; l++) {
+               vec3 lDir = light[l].xyz;
+               float lBrightness = light[l].w;
+               float t = -1.;
+               for (int i = 0 ; i < 4 ; i++)
+                  t = max(t, raySphere(p, lDir, sphere[i]));
+               if (t < 0.) {
+                  vec3 R = 2. * N * dot(N, lDir) - lDir;
+                  color += lBrightness * ( c.rgb * .9 * max(0., dot(N, lDir))
+                                         + c.a * vec3(pow(max(0., R.z), 10.)) );
+               }
+            }
+            return color;
+         }
+         // bool castRay( const vec3 & ro, const vec3 & rd, float & resT )
+         // {
+         //     float dt = 0.01f;
+         //     const float mint = 0.001f;
+         //     const float maxt = 10.0f;
+         //     float lh = 0.0f;
+         //     float ly = 0.0f;
+         //     for( float t = mint; t < maxt; t += dt )
+         //     {
+         //         const vec3  p = ro + rd*t;
+         //         const float h = f( p.xz );
+         //         if( p.y < h )
+         //         {
+         //             // interpolate the intersection distance
+         //             resT = t - dt + dt*(lh-ly)/(p.y-ly-h+lh);
+         //             return true;
+         //         }
+         //         // allow the error to be proportinal to the distance
+         //         dt = 0.01f*t;
+         //         lh = h;
+         //         ly = p.y;
+         //     }
+         //     return false;
+         // }
+
+         // float march( vec3 pos, vec3 ray ){
+         //    float d = 0.;
+         //    float h;
+         //    for( int i=0; i < ITR; i++ ){
+         //       h = map( pos+d*ray );
+         //       if ( h < .005 || d > FAR )break;
+         //       d = d+h;
+         //    }
+         //    if (d > FAR)return 0.;
+         //    else return d;
+         // }
+         
+         // float rayMarch(vec3 pos, vec3 dir, vec2 uv, float d)
+         // {
+         //     d = max(d,.0);
+         //     bool hit = false;
+         //     float de = 0.0, od = 0.0;
+         //     for (int i = 0; i < 150; i++)
+         //     {
+         //         de = mapDE(pos + dir * d);
+         //
+         //        if(de < sphereSize(d)  || d > 2000.0) break;
+         //       
+         //          od = d;
+         //          d += 0.5*de;
+         //     }
+         //    if (d < 2000.0)
+         //         d = binarySubdivision(pos, dir, vec2(d, od));
+         //    else
+         //    d = 2000.0;
+         //    
+         //    return d;
+         // }
+         ---------------------------------------------------------------------
+	 if (uRayTrace == 1) {
+	    float fl = -1. / uProj[3].z; // FOCAL LENGTH OF VIRTUAL CAMERA
+            for (int i = 0 ; i < 4 ; i++) {
+               light[i]  = vec4((uView * vec4(uL[i].xyz,0.)).xyz,uL[i].w);
+               sphere[i] = vec4((uView * uS[i]).xyz,.25) - vec4(0.,0.,fl,0.);
+            }
+            vec3 V = vec3(0.);
+            vec3 W = normalize(vec3(2.*vUV.x-1.,1.-2.*vUV.y,-fl));
+            float tMin = 1000.;
+            for (int i = 0 ; i < 4 ; i++) {
+               float t = raySphere(V, W, sphere[i]);
+               if (t > 0. && t < tMin) {
+                  tMin = t;
+                  color = shadeSphere(t * W, sphere[i], uC[i]);
+               }
+            }
+            if (tMin == 1000.)
+               opacity = 0.;
+         }
+      `);
     });
 }
-

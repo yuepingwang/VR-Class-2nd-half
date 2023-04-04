@@ -29,7 +29,7 @@ export default () => {
          { name: "DemoParticles"      , path: "./demoParticles.js"      },
          { name: "DemoGLTF"           , path: "./demoGLTF.js"           },
          { name: "DemoSprite"         , path: "./demoSprite.js"         },
-         { name: "DemoIntersect"      , path: "./demoIntersect.js"      },
+         { name: "TestFlyEffect"      , path: "./testFlyEffect.js"      },
       ]
    };
 }

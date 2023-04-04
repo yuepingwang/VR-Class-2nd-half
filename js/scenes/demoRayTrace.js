@@ -15,7 +15,7 @@
 
 export const init = async model => {
    let screen = model.add('cube');
-   let isHUD = false;
+   let isHUD = true;
    model.control('h', 'toggle HUD', () => isHUD = ! isHUD);
 
    model.animate(() => {
@@ -32,6 +32,9 @@ export const init = async model => {
       model.setUniform('4fv','uC', [1,1,0,2., 0,1,1,2, 1,0,1,2, 0,1,0,2]);
 
       model.customShader(`
+      #define ITR 60
+      #define FAR 100.
+      #define time iTime*0.2
          uniform int uRayTrace;
          uniform vec4 uC[4], uL[4], uS[4];
          vec4 light[4], sphere[4];
@@ -58,6 +61,41 @@ export const init = async model => {
             }
             return color;
          }
+       
+
+         // float march( vec3 pos, vec3 ray ){
+         //    float d = 0.;
+         //    float h;
+         //    for( int i=0; i < ITR; i++ ){
+         //       h = map( pos+d*ray );
+         //       if ( h < .005 || d > FAR )break;
+         //       d = d+h;
+         //    }
+         //    if (d > FAR)return 0.;
+         //    else return d;
+         // }
+         
+         // float rayMarch(vec3 pos, vec3 dir, vec2 uv, float d)
+         // {
+         //     d = max(d,.0);
+         //     bool hit = false;
+         //     float de = 0.0, od = 0.0;
+         //     for (int i = 0; i < 150; i++)
+         //     {
+         //         de = mapDE(pos + dir * d);
+         //
+         //        if(de < sphereSize(d)  || d > 2000.0) break;
+         //       
+         //          od = d;
+         //          d += 0.5*de;
+         //     }
+         //    if (d < 2000.0)
+         //         d = binarySubdivision(pos, dir, vec2(d, od));
+         //    else
+         //    d = 2000.0;
+         //    
+         //    return d;
+         // }
          ---------------------------------------------------------------------
 	 if (uRayTrace == 1) {
 	    float fl = -1. / uProj[3].z; // FOCAL LENGTH OF VIRTUAL CAMERA
