@@ -14,9 +14,13 @@
  ******************************************************************/
 
 export const init = async model => {
-    let screen = model.add('cube');
-    let isHUD = true;
+    let screen = model.add('cube').scale(4.0);
+    let isHUD = false;
     model.control('h', 'toggle HUD', () => isHUD = ! isHUD);
+    model.setRoom(false);
+    model.setTable(false);
+    model.identity().scale(8.0);
+
 
     model.animate(() => {
         let m = views[0]._viewMatrix, c = .5*Math.cos(model.time), s = .5*Math.sin(model.time);
@@ -25,28 +29,94 @@ export const init = async model => {
         else
             model.setMatrix([m[0],m[4],m[8],0,m[1],m[5],m[9],0,m[2],m[6],m[10],0,0,1.6,-1,1]);
         model.scale(.4,.4,.0001);
+        let posZ = -model.time;
+        let posX = 0.;
+        let posY = 10.;
 
         model.flag('uRayTrace');
         model.setUniform('4fv','uL', [.5,.5,.5,1., -.5,-.5,-.5,.2, .7,-.7,0,.2, -.7,.7,0,.2]);
         model.setUniform('4fv','uS', [c,s,0,0, s,0,c,0, 0,c,s,0, -c,-s,0,0]);
-        model.setUniform('4fv','uC', [1,1,0,2., 0,1,1,2, 1,0,1,2, 0,1,0,2]);
+        model.setUniform('4fv','uC', [0,0,0,2., 0,1,1,2, 1,0,1,2, 0,1,0,2]);
+        model.setUniform('4fv','uP', [posX,posY,posZ+0.1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]);
+
 
         model.customShader(`
         #define ITR 60
-        #define FAR 100.
-        #define time iTime*0.2
-        #define USE_BOUND_PLANE
-
-        const mat2 m2 = mat2(1.6,-1.2,1.2,1.6);
+        #define FAR 400.
+        //uniform vec4 time;
         
-        float noi( in vec2 p )
+        uniform int uRayTrace;
+        uniform vec4 uC[4], uL[4], uS[4], uP[4];
+        vec4 light[4], sphere[4];
+        
+        mat2 mm2(float a){float c = cos(a), s = sin(a);return mat2(c,-s,s,c);}
+        mat2 m2 = mat2(0.934, 0.358, -0.358, 0.934);
+        float tri(float x){return abs(fract(x)-0.5);}
+        
+        float heightmap(vec2 p)
         {
-            return 0.5*(cos(6.2831*p.x) + cos(6.2831*p.y));
+            p*=.05;
+            float z=2.;
+            float rz = 0.;
+            for (float i= 1.;i < 4.;i++ )
+            {
+                rz+= tri(p.x+tri(p.y*1.5))/z;
+                z = z*-.85;
+                p = p*1.32;
+                p*= m2;
+            }
+            rz += sin(p.y+sin(p.x*.9))*.7+.3;
+            return rz*5.;
+        }
+        vec3 bary(vec2 a, vec2 b, vec2 c, vec2 p) 
+        {
+            vec2 v0 = b - a, v1 = c - a, v2 = p - a;
+            float inv_denom = 1.0 / (v0.x * v1.y - v1.x * v0.y)+1e-9;
+            float v = (v2.x * v1.y - v1.x * v2.y) * inv_denom;
+            float w = (v0.x * v2.y - v2.x * v0.y) * inv_denom;
+            float u = 1.0 - v - w;
+            return abs(vec3(u,v,w));
         }
         
-         uniform int uRayTrace;
-         uniform vec4 uC[4], uL[4], uS[4];
-         vec4 light[4], sphere[4];
+        float map(vec3 p)
+        {
+            vec3 q = fract(p)-0.5;
+            vec3 iq = floor(p);
+            vec2 p1 = vec2(iq.x-.5, iq.z+.5);
+            vec2 p2 = vec2(iq.x+.5, iq.z-.5);
+            
+            float d1 = heightmap(p1);
+            float d2 = heightmap(p2);
+            
+            float sw = sign(q.x+q.z); 
+            vec2 px = vec2(iq.x+.5*sw, iq.z+.5*sw);
+            float dx = heightmap(px);
+            vec3 bar = bary(vec2(.5*sw,.5*sw),vec2(-.5,.5),vec2(.5,-.5), q.xz);
+            return (bar.x*dx + bar.y*d1 + bar.z*d2 + p.y + 3.)*.9;
+        }
+        
+        float march(vec3 ro, vec3 rd)
+        {
+            float precis = 0.001;
+            float h=precis*2.0;
+            float d = 0.;
+            for( int i=0; i<ITR; i++ )
+            {
+                if( abs(h)<precis || d>FAR ) break;
+                d += h;
+                float res = map(ro+rd*d)*1.1;
+                h = res;
+            }
+            return d;
+        }
+        
+        vec3 normal(vec3 p)
+        {  
+            vec2 e = vec2(-1., 1.)*0.01;
+            return normalize(e.yxx*map(p + e.yxx) + e.xxy*map(p + e.xxy) + 
+                             e.xyx*map(p + e.xyx) + e.yyy*map(p + e.yyy) );   
+        }
+        
          float raySphere(vec3 V, vec3 W, vec4 S) {
             V -= S.xyz;
             float b = dot(V, W);
@@ -70,84 +140,93 @@ export const init = async model => {
             }
             return color;
          }
-         // bool castRay( const vec3 & ro, const vec3 & rd, float & resT )
-         // {
-         //     float dt = 0.01f;
-         //     const float mint = 0.001f;
-         //     const float maxt = 10.0f;
-         //     float lh = 0.0f;
-         //     float ly = 0.0f;
-         //     for( float t = mint; t < maxt; t += dt )
-         //     {
-         //         const vec3  p = ro + rd*t;
-         //         const float h = f( p.xz );
-         //         if( p.y < h )
-         //         {
-         //             // interpolate the intersection distance
-         //             resT = t - dt + dt*(lh-ly)/(p.y-ly-h+lh);
-         //             return true;
-         //         }
-         //         // allow the error to be proportinal to the distance
-         //         dt = 0.01f*t;
-         //         lh = h;
-         //         ly = p.y;
-         //     }
-         //     return false;
-         // }
-
-         // float march( vec3 pos, vec3 ray ){
-         //    float d = 0.;
-         //    float h;
-         //    for( int i=0; i < ITR; i++ ){
-         //       h = map( pos+d*ray );
-         //       if ( h < .005 || d > FAR )break;
-         //       d = d+h;
-         //    }
-         //    if (d > FAR)return 0.;
-         //    else return d;
-         // }
          
-         // float rayMarch(vec3 pos, vec3 dir, vec2 uv, float d)
-         // {
-         //     d = max(d,.0);
-         //     bool hit = false;
-         //     float de = 0.0, od = 0.0;
-         //     for (int i = 0; i < 150; i++)
-         //     {
-         //         de = mapDE(pos + dir * d);
-         //
-         //        if(de < sphereSize(d)  || d > 2000.0) break;
-         //       
-         //          od = d;
-         //          d += 0.5*de;
-         //     }
-         //    if (d < 2000.0)
-         //         d = binarySubdivision(pos, dir, vec2(d, od));
-         //    else
-         //    d = 2000.0;
-         //    
-         //    return d;
-         // }
-         ---------------------------------------------------------------------
+        //  void mainImage( out vec4 fragColor, in vec2 fragCoord )
+        // {
+        //     vec2 bp = fragCoord.xy/iResolution.xy;
+        //     vec2 p = bp-0.5;
+        //     p.x*=iResolution.x/iResolution.y;
+        //     vec2 um = vec2(0.45+sin(time*0.7)*2., -.18);
+        //
+        //     vec3 ro = vec3(sin(time*0.7+1.)*20.,3., time*50.);
+        //     vec3 eye = normalize(vec3(cos(um.x), um.y*5., sin(um.x)));
+        //     vec3 right = normalize(vec3(cos(um.x+1.5708), 0., sin(um.x+1.5708)));
+        //     right.xy *= mm2(sin(time*0.7)*0.3);
+        //     vec3 up = normalize(cross(right, eye));
+        //     vec3 rd = normalize((p.x*right+p.y*up)*1.+eye);
+        //
+        //     float rz = march(ro,rd);
+        //     vec3 col = vec3(0.);
+        //
+        //     if ( rz < FAR )
+        //     {
+        //         vec3 pos = ro+rz*rd;
+        //         vec3 nor= normal(pos);
+        //         vec3 ligt = normalize(vec3(-.2, 0.05, -0.2));
+        //
+        //         float dif = clamp(dot( nor, ligt ), 0., 1.);
+        //         float fre = pow(clamp(1.0+dot(nor,rd),0.0,1.0), 3.);
+        //         vec3 brdf = 2.*vec3(0.10,0.11,0.1);
+        //         brdf += 1.9*dif*vec3(.8,1.,.05);
+        //         col = vec3(0.35,0.07,0.5);
+        //         col = col*brdf + fre*0.5*vec3(.7,.8,1.);
+        //     }
+        //     col = clamp(col,0.,1.);
+        //     col = pow(col,vec3(.9));
+        //     col *= pow( 16.0*bp.x*bp.y*(1.0-bp.x)*(1.0-bp.y), 0.1);
+        //     fragColor = vec4( col, 1.0 );
+        // }
+
+         //---------------------------------------------------------------------
 	 if (uRayTrace == 1) {
 	    float fl = -1. / uProj[3].z; // FOCAL LENGTH OF VIRTUAL CAMERA
             for (int i = 0 ; i < 4 ; i++) {
                light[i]  = vec4((uView * vec4(uL[i].xyz,0.)).xyz,uL[i].w);
                sphere[i] = vec4((uView * uS[i]).xyz,.25) - vec4(0.,0.,fl,0.);
             }
-            vec3 V = vec3(0.);
+            
+            //vec3 V = vec3(0.,0.,-100.);
+            vec3 V = vec3(0.,0.,uP[0].z);
             vec3 W = normalize(vec3(2.*vUV.x-1.,1.-2.*vUV.y,-fl));
             float tMin = 1000.;
-            for (int i = 0 ; i < 4 ; i++) {
-               float t = raySphere(V, W, sphere[i]);
-               if (t > 0. && t < tMin) {
-                  tMin = t;
-                  color = shadeSphere(t * W, sphere[i], uC[i]);
-               }
+            
+            //color = vec3(0.);
+            float rz = march(V,W);
+            //float rz =  200.;
+            if ( rz < FAR )
+            {
+                vec3 pos = V+rz*W;
+                //vec3 nor= normal(pos);
+                vec2 e = vec2(-1., 1.)*0.01;
+                vec3 nor = normalize(e.yxx*map(pos + e.yxx) + e.xxy*map(pos + e.xxy) + 
+                             e.xyx*map(pos + e.xyx) + e.yyy*map(pos + e.yyy) );
+                vec3 ligt = normalize(vec3(-.2, 0.05, -0.2));
+
+                float dif = clamp(dot( nor, ligt ), 0., 1.);
+                float fre = pow(clamp(1.0+dot(nor,W),0.0,1.0), 3.);
+                vec3 brdf = 2.*vec3(0.10,0.11,0.1);
+                brdf += 1.9*dif*vec3(.8,1.,.05);
+                color = vec3(0.35,0.07,0.5);
+                color = color*brdf + fre*0.1*vec3(.7,.8,1.);
+                color = clamp(color,0.,1.);
+                color = pow(color,vec3(.9));
             }
-            if (tMin == 1000.)
-               opacity = 0.;
+       
+            
+            // color *= pow( 16.0*bp.x*bp.y*(1.0-bp.x)*(1.0-bp.y), 0.1);
+            
+            // for (int i = 0 ; i < 4 ; i++) {
+            //    float t = raySphere(V, W, sphere[i]);
+            //    if (t > 0. && t < tMin) {
+            //       tMin = t;
+            //       color = shadeSphere(t * W, sphere[i], uC[i]);
+            //    }
+            // }
+            // if (tMin == 1000.)
+            else
+               opacity = 0.1;
          }
+        
       `);
     });
 }

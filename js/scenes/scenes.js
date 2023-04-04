@@ -22,7 +22,7 @@ export default () => {
          { name: "DemoHands"          , path: "./demoHands.js"          },
          { name: "DemoShader"         , path: "./demoShader.js"         },
          { name: "DemoTerrain"        , path: "./demoTerrain.js"        },
-         { name: "DemoRayTrace"       , path: "./demoRayTrace.js"       },
+         { name: "DemoRayTrace"       , path: "./testFlyEffect.js"       },
          { name: "DemoAudio"          , path: "./demoAudio.js"          },
          { name: "DemoWire"           , path: "./demoWire.js"           },
          { name: "DemoBlending"       , path: "./demoBlending.js"       },
