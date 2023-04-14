@@ -12,6 +12,11 @@
  code, by using 'h' mode toggle.
 
  ******************************************************************/
+import { controllerMatrix, buttonState, joyStickState, getViews, viewMatrix} from "../render/core/controllerInput.js";
+let leftTriggerPrev = false;
+let rightTriggerPrev = false;
+
+let prev_time = 0;
 
 export const init = async model => {
     let screen = model.add('cube').scale(4.0);
@@ -20,18 +25,45 @@ export const init = async model => {
     model.setRoom(false);
     model.setTable(false);
     model.identity().scale(8.0);
+    let posZ = -100.;
+    let posX = 0.;
+    let posY = 0.;
 
 
     model.animate(() => {
+        // Add Controllers
+        let ml = controllerMatrix.left;
+        let mr = controllerMatrix.right;
+        let leftTrigger = buttonState.left[0].pressed;
+        let rightTrigger = buttonState.right[0].pressed;
+
+        posZ = -model.time;
+        if (leftTrigger||rightTrigger){
+            if (prev_time==0)
+                prev_time = model.time;
+            if (leftTrigger&&rightTrigger){
+                posY +=1.;
+                // posY += 10*model.time-prev_time;
+            }
+            else if (leftTrigger){
+                posX -=1.;
+                //posX -= 10*model.time-prev_time;
+            }
+            else {
+                posX +=1.;
+                //posX += 10*model.time-prev_time;
+            }
+        }
+        else
+            prev_time=0;
+
+
         let m = views[0]._viewMatrix, c = .5*Math.cos(model.time), s = .5*Math.sin(model.time);
         if (isHUD)
             model.hud();
         else
             model.setMatrix([m[0],m[4],m[8],0,m[1],m[5],m[9],0,m[2],m[6],m[10],0,0,1.6,-1,1]);
-        model.scale(.4,.4,.0001);
-        let posZ = -model.time;
-        let posX = 0.;
-        let posY = 10.;
+        model.scale(1.,1.,.0001);
 
         model.flag('uRayTrace');
         model.setUniform('4fv','uL', [.5,.5,.5,1., -.5,-.5,-.5,.2, .7,-.7,0,.2, -.7,.7,0,.2]);
@@ -186,7 +218,7 @@ export const init = async model => {
             }
             
             //vec3 V = vec3(0.,0.,-100.);
-            vec3 V = vec3(0.,0.,uP[0].z);
+            vec3 V = vec3(0.,10.,uP[0].z);
             vec3 W = normalize(vec3(2.*vUV.x-1.,1.-2.*vUV.y,-fl));
             float tMin = 1000.;
             
@@ -211,9 +243,8 @@ export const init = async model => {
                 color = clamp(color,0.,1.);
                 color = pow(color,vec3(.9));
             }
-       
             
-            // color *= pow( 16.0*bp.x*bp.y*(1.0-bp.x)*(1.0-bp.y), 0.1);
+           
             
             // for (int i = 0 ; i < 4 ; i++) {
             //    float t = raySphere(V, W, sphere[i]);
@@ -223,8 +254,23 @@ export const init = async model => {
             //    }
             // }
             // if (tMin == 1000.)
-            else
-               opacity = 0.1;
+            else {
+            // Stars
+            float starXf = (atan(W.x, W.z) + 1.57) / 6.28;
+            float starYf = (asin(W.y) / 1.57);
+            int starX = int(starXf * 1000.0 * 16.0);
+            int starY = int(starYf * 250.0 * 16.0);
+            float starTest = float(7 + starX * starY * 13);
+            float value = abs(mod(starTest, 5000.0));
+            if ( value >= 0.0 && value <= .5)
+                {
+                    color = vec3(value * 0.5 + .5);
+                }
+                else{
+                opacity = 0.2;
+                }
+            }
+             
          }
         
       `);
