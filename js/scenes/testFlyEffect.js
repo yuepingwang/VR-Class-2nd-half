@@ -66,9 +66,9 @@ export const init = async model => {
         model.scale(1.,1.,.0001);
 
         model.flag('uRayTrace');
-        model.setUniform('4fv','uL', [.5,.5,.5,1., -.5,-.5,-.5,.2, .7,-.7,0,.2, -.7,.7,0,.2]);
-        model.setUniform('4fv','uS', [c,s,0,0, s,0,c,0, 0,c,s,0, -c,-s,0,0]);
-        model.setUniform('4fv','uC', [0,0,0,2., 0,1,1,2, 1,0,1,2, 0,1,0,2]);
+        // model.setUniform('4fv','uL', [.5,.5,.5,1., -.5,-.5,-.5,.2, .7,-.7,0,.2, -.7,.7,0,.2]);
+        // model.setUniform('4fv','uS', [c,s,0,0, s,0,c,0, 0,c,s,0, -c,-s,0,0]);
+        // model.setUniform('4fv','uC', [0,0,0,2., 0,1,1,2, 1,0,1,2, 0,1,0,2]);
         model.setUniform('4fv','uP', [posX,posY,posZ+0.1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]);
 
 
@@ -78,7 +78,8 @@ export const init = async model => {
         //uniform vec4 time;
         
         uniform int uRayTrace;
-        uniform vec4 uC[4], uL[4], uS[4], uP[4];
+        //uniform vec4 uC[4], uL[4], uS[4];
+        uniform vec4 uP[4];
         vec4 light[4], sphere[4];
         
         mat2 mm2(float a){float c = cos(a), s = sin(a);return mat2(c,-s,s,c);}
@@ -175,21 +176,21 @@ export const init = async model => {
          
          //---------------------------------------------------------------------
 	 if (uRayTrace == 1) {
-	    float fl = -1. / uProj[3].z; // FOCAL LENGTH OF VIRTUAL CAMERA
-            for (int i = 0 ; i < 4 ; i++) {
-               light[i]  = vec4((uView * vec4(uL[i].xyz,0.)).xyz,uL[i].w);
-               sphere[i] = vec4((uView * uS[i]).xyz,.25) - vec4(0.,0.,fl,0.);
-            }
+	        float fl = -1. / uProj[3].z; // FOCAL LENGTH OF VIRTUAL CAMERA
+	        
+            // for (int i = 0 ; i < 4 ; i++) {
+            //    light[i]  = vec4((uView * vec4(uL[i].xyz,0.)).xyz,uL[i].w);
+            //    sphere[i] = vec4((uView * uS[i]).xyz,.25) - vec4(0.,0.,fl,0.);
+            // }
             
             vec3 V = vec3(0.,10.,uP[0].z);
-            //vec3 V = vec3(0.,0.,-100.);
             vec3 W = normalize(vec3(2.*vUV.x-1.,1.-2.*vUV.y,-fl));
-            float tMin = 1000.;
+            //float tMin = 1000.;
             
             float rz = march(V,W);
-            //float rz =  200.;
             if ( rz < FAR )
             {
+                // Draw Terrain
                 vec3 pos = V+rz*W;
                 //vec3 nor= normal(pos);
                 vec2 e = vec2(-1., 1.)*0.01;
