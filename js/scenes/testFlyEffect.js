@@ -142,73 +142,37 @@ export const init = async model => {
             return d;
         }
         
-        vec3 normal(vec3 p)
-        {  
-            vec2 e = vec2(-1., 1.)*0.01;
-            return normalize(e.yxx*map(p + e.yxx) + e.xxy*map(p + e.xxy) + 
-                             e.xyx*map(p + e.xyx) + e.yyy*map(p + e.yyy) );   
-        }
-        
-         float raySphere(vec3 V, vec3 W, vec4 S) {
-            V -= S.xyz;
-            float b = dot(V, W);
-            float d = b * b - dot(V, V) + S.w * S.w;
-            return d < 0. ? -1. : -b - sqrt(d);
-         }
-         vec3 shadeSphere(vec3 p, vec4 s, vec4 c) {
-            vec3 N = normalize(p - s.xyz);
-            vec3 color = .1 * c.rgb;
-            for (int l = 0 ; l < 4 ; l++) {
-               vec3 lDir = light[l].xyz;
-               float lBrightness = light[l].w;
-               float t = -1.;
-               for (int i = 0 ; i < 4 ; i++)
-                  t = max(t, raySphere(p, lDir, sphere[i]));
-               if (t < 0.) {
-                  vec3 R = 2. * N * dot(N, lDir) - lDir;
-                  color += lBrightness * ( c.rgb * .9 * max(0., dot(N, lDir))
-                                         + c.a * vec3(pow(max(0., R.z), 10.)) );
-               }
-            }
-            return color;
-         }
-         
-        //  void mainImage( out vec4 fragColor, in vec2 fragCoord )
-        // {
-        //     vec2 bp = fragCoord.xy/iResolution.xy;
-        //     vec2 p = bp-0.5;
-        //     p.x*=iResolution.x/iResolution.y;
-        //     vec2 um = vec2(0.45+sin(time*0.7)*2., -.18);
-        //
-        //     vec3 ro = vec3(sin(time*0.7+1.)*20.,3., time*50.);
-        //     vec3 eye = normalize(vec3(cos(um.x), um.y*5., sin(um.x)));
-        //     vec3 right = normalize(vec3(cos(um.x+1.5708), 0., sin(um.x+1.5708)));
-        //     right.xy *= mm2(sin(time*0.7)*0.3);
-        //     vec3 up = normalize(cross(right, eye));
-        //     vec3 rd = normalize((p.x*right+p.y*up)*1.+eye);
-        //
-        //     float rz = march(ro,rd);
-        //     vec3 col = vec3(0.);
-        //
-        //     if ( rz < FAR )
-        //     {
-        //         vec3 pos = ro+rz*rd;
-        //         vec3 nor= normal(pos);
-        //         vec3 ligt = normalize(vec3(-.2, 0.05, -0.2));
-        //
-        //         float dif = clamp(dot( nor, ligt ), 0., 1.);
-        //         float fre = pow(clamp(1.0+dot(nor,rd),0.0,1.0), 3.);
-        //         vec3 brdf = 2.*vec3(0.10,0.11,0.1);
-        //         brdf += 1.9*dif*vec3(.8,1.,.05);
-        //         col = vec3(0.35,0.07,0.5);
-        //         col = col*brdf + fre*0.5*vec3(.7,.8,1.);
-        //     }
-        //     col = clamp(col,0.,1.);
-        //     col = pow(col,vec3(.9));
-        //     col *= pow( 16.0*bp.x*bp.y*(1.0-bp.x)*(1.0-bp.y), 0.1);
-        //     fragColor = vec4( col, 1.0 );
+        // vec3 normal(vec3 p)
+        // {  
+        //     vec2 e = vec2(-1., 1.)*0.01;
+        //     return normalize(e.yxx*map(p + e.yxx) + e.xxy*map(p + e.xxy) + 
+        //                      e.xyx*map(p + e.xyx) + e.yyy*map(p + e.yyy) );   
         // }
-
+        
+         // float raySphere(vec3 V, vec3 W, vec4 S) {
+         //    V -= S.xyz;
+         //    float b = dot(V, W);
+         //    float d = b * b - dot(V, V) + S.w * S.w;
+         //    return d < 0. ? -1. : -b - sqrt(d);
+         // }
+         // vec3 shadeSphere(vec3 p, vec4 s, vec4 c) {
+         //    vec3 N = normalize(p - s.xyz);
+         //    vec3 color = .1 * c.rgb;
+         //    for (int l = 0 ; l < 4 ; l++) {
+         //       vec3 lDir = light[l].xyz;
+         //       float lBrightness = light[l].w;
+         //       float t = -1.;
+         //       for (int i = 0 ; i < 4 ; i++)
+         //          t = max(t, raySphere(p, lDir, sphere[i]));
+         //       if (t < 0.) {
+         //          vec3 R = 2. * N * dot(N, lDir) - lDir;
+         //          color += lBrightness * ( c.rgb * .9 * max(0., dot(N, lDir))
+         //                                 + c.a * vec3(pow(max(0., R.z), 10.)) );
+         //       }
+         //    }
+         //    return color;
+         // }
+         
          //---------------------------------------------------------------------
 	 if (uRayTrace == 1) {
 	    float fl = -1. / uProj[3].z; // FOCAL LENGTH OF VIRTUAL CAMERA
@@ -217,12 +181,11 @@ export const init = async model => {
                sphere[i] = vec4((uView * uS[i]).xyz,.25) - vec4(0.,0.,fl,0.);
             }
             
-            //vec3 V = vec3(0.,0.,-100.);
             vec3 V = vec3(0.,10.,uP[0].z);
+            //vec3 V = vec3(0.,0.,-100.);
             vec3 W = normalize(vec3(2.*vUV.x-1.,1.-2.*vUV.y,-fl));
             float tMin = 1000.;
             
-            //color = vec3(0.);
             float rz = march(V,W);
             //float rz =  200.;
             if ( rz < FAR )
@@ -243,31 +206,21 @@ export const init = async model => {
                 color = clamp(color,0.,1.);
                 color = pow(color,vec3(.9));
             }
-            
-           
-            
-            // for (int i = 0 ; i < 4 ; i++) {
-            //    float t = raySphere(V, W, sphere[i]);
-            //    if (t > 0. && t < tMin) {
-            //       tMin = t;
-            //       color = shadeSphere(t * W, sphere[i], uC[i]);
-            //    }
-            // }
-            // if (tMin == 1000.)
+
             else {
-            // Stars
-            float starXf = (atan(W.x, W.z) + 1.57) / 6.28;
-            float starYf = (asin(W.y) / 1.57);
-            int starX = int(starXf * 1000.0 * 16.0);
-            int starY = int(starYf * 250.0 * 16.0);
-            float starTest = float(7 + starX * starY * 13);
-            float value = abs(mod(starTest, 5000.0));
-            if ( value >= 0.0 && value <= .5)
-                {
-                    color = vec3(value * 0.5 + .5);
-                }
+                // Draw Stars
+                float starXf = (atan(W.x, W.z) + 1.57) / 6.28;
+                float starYf = (asin(W.y) / 1.57);
+                int starX = int(starXf * 1000.0 * 16.0);
+                int starY = int(starYf * 250.0 * 16.0);
+                float starTest = float(7 + starX * starY * 13);
+                float value = abs(mod(starTest, 5000.0));
+                if ( value >= 0.0 && value <= .5)
+                    {
+                        color = vec3(value * 0.5 + .5);
+                    }
                 else{
-                opacity = 0.2;
+                    opacity = 0.2;
                 }
             }
              
