@@ -30,7 +30,8 @@ export default () => {
          // { name: "DemoGLTF"           , path: "./demoGLTF.js"           },
          // { name: "DemoSprite"         , path: "./demoSprite.js"         },
          { name: "TestFlyEffect"      , path: "./testFlyEffect.js"      },
-         { name: "TestViewTransform"  , path: "./testViewTransform.js"      },
+         // { name: "TestViewTransform"  , path: "./testViewTransform.js"      },
+         { name: "NewShapes"      , path: "./newShapes.js"      },
          { name: "TestViewTransform(Primitives)"  , path: "./testViewTransform1.js"      },
       ]
    };
