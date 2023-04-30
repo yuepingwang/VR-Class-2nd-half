@@ -29,10 +29,15 @@ export default () => {
          // { name: "DemoParticles"      , path: "./demoParticles.js"      },
          // { name: "DemoGLTF"           , path: "./demoGLTF.js"           },
          // { name: "DemoSprite"         , path: "./demoSprite.js"         },
-         { name: "TestFlyEffect"      , path: "./testFlyEffect.js"      },
+         // { name: "TestFlyEffect"      , path: "./testFlyEffect.js"      },
          // { name: "TestViewTransform"  , path: "./testViewTransform.js"      },
-         { name: "NewShapes"      , path: "./newShapes.js"      },
+         // { name: "Diving Scene 2"  , path: "./testDiving1.js"      },
+         { name: "Diving Scene 2"  , path: "./testViewTransform2.js"      },
+         { name: "Cube Modeler"  , path: "./testCubeModeler.js"      },
+         { name: "Sphere Modeler"  , path: "./testSphereModeler.js"      },
+         { name: "Diving Scene 1"  , path: "./testDiving.js"      },
          { name: "TestViewTransform(Primitives)"  , path: "./testViewTransform1.js"      },
+         { name: "ViewTransformInteractions(Primitives)"  , path: "./testViewTransform3.js"      },
       ]
    };
 }

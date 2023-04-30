@@ -51,20 +51,35 @@ const createOctagonSide = () => {
     return glueMeshes(glueMeshes(glueMeshes(glueMeshes(parts[0],parts[1]),parts[2]),parts[3]),glueMeshes(glueMeshes(glueMeshes(parts[4],parts[5]),parts[6]),parts[7]));
 }
 
-export const init = async model => {
-    model.setTable(false);
+// export const init = async model => {
+//     model.setTable(false);
+//     clay.defineMesh('oct', createOctagonMesh());
+//     clay.defineMesh('octSide', createOctagonSide());
+//     clay.defineMesh('octTube',clay.combineMeshes([
+//         ['oct',cg.mTranslate(0,0,0 ), [1,1,.5] ],
+//         ['oct',cg.mMultiply(cg.mTranslate(0,0,-octHeight ),cg.mRotateY(PI)), [.3,.5,.6] ],
+//         ['octSide',cg.mTranslate(0,0,0 ), [.5,1,.5] ],
+//     ]));
+//     let octT = model.add();
+//     octT.add('octTube');
+//     model.move(0,1.5,0).scale(.1).animate(() => {
+//         octT.identity().move(0,Math.sin(model.time)*.5,0).turnX(-PI/2+Math.sin(model.time)*2);
+//     });
+// }
+
+const defineOctTube = () =>{
     clay.defineMesh('oct', createOctagonMesh());
     clay.defineMesh('octSide', createOctagonSide());
-    clay.defineMesh('octTube',clay.combineMeshes([
-        ['oct',cg.mTranslate(0,0,0 ), [1,1,.5] ],
-        ['oct',cg.mMultiply(cg.mTranslate(0,0,-octHeight ),cg.mRotateY(PI)), [.3,.5,.6] ],
-        ['octSide',cg.mTranslate(0,0,0 ), [.5,1,.5] ],
+    clay.defineMesh('octTubeZ',clay.combineMeshes([
+        ['oct',cg.mTranslate(0,0,octHeight/2 ), [1,1,.5] ],
+        ['oct',cg.mMultiply(cg.mTranslate(0,0,-octHeight/2 ),cg.mRotateY(PI)), [.3,.5,.6] ],
+        ['octSide',cg.mTranslate(0,0,octHeight/2 ), [.5,1,.5] ],
     ]));
-    let octT = model.add();
-    octT.add('octTube');
-    model.move(0,1.5,0).scale(.1).animate(() => {
-        octT.identity().move(0,Math.sin(model.time)*.5,0).turnX(-PI/2+Math.sin(model.time)*2);
-    });
+    clay.defineMesh('octTubeY',clay.combineMeshes([
+        ['octTubeZ',cg.mRotateX(-PI/2), [1,1,1]],
+    ]));
+    clay.defineMesh('octTubeX',clay.combineMeshes([
+        ['octTubeZ',cg.mRotateY(-PI/2), [1,1,1]],
+    ]));
 }
-
-//export default createOctagonMesh;
+export default defineOctTube;
