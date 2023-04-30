@@ -37,7 +37,7 @@ export default () => {
          { name: "Sphere Modeler"  , path: "./testSphereModeler.js"      },
          { name: "Diving Scene 1"  , path: "./testDiving.js"      },
          { name: "TestViewTransform(Primitives)"  , path: "./testViewTransform1.js"      },
-         { name: "ViewTransformInteractions(Primitives)"  , path: "./testViewTransform3.js"      },
+         { name: "ViewTransformInteractions(Primitives)"  , path: "./testViewTransform2.js"      },
       ]
    };
 }

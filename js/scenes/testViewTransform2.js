@@ -84,19 +84,19 @@ export const init = async model => {
     /**
      * Add Primitives for the large-scale view
      * **/
-        // add islands
+    // set up large-scale view
     let largeView = model.add();
+    // add beam
+    let beam1 = model.add('tubeY');
+    let posZ = -100.;
+    let posX = 0.;
+    let posY = 0.;
+    // add water
     let seaSpace = largeView.add();
-    //let seabed = largeView.add();
+    seaSpace.add('cube').color(colors[1]).opacity(.4);
+    // add terrain
     let terrain = largeView.add();
     clay.defineMesh('myTerrain', createTerrainGrid(grid_size, grid_size));
-    //seabed.add('myTerrain').color([4]);
-    let seed1 = Math.random();
-    let seed2 = Math.random();
-
-    //seabed.add('cube').color(colors[4]);// add floor
-    seaSpace.add('cube').color(colors[1]).opacity(.4);// add water
-
     terrain.add('myTerrain').color(colors[4]).texture('../media/textures/sand2.jpg');
 
     /** End of adding large-scale models **/
@@ -119,14 +119,19 @@ export const init = async model => {
     //
     // largeView.child(2).setVertices((u,v) => {
     //     return [2*u-1,2*v-1,.4 * cg.noise(3*u-model.time,3*v,model.time)];});
+
     model.animate(() => {
 
-        terrain.identity().move(l(seabed_pos)).turnX(-.5*Math.PI).scale(cg.scale([1,1,.5],large));
         /**
          * Configure large-scale models
          * **/
-        //seabed.identity().move(l(seabed_pos)).scale(l(seabed_size));
+        // beam with fragment shader
+        beam1.flag('uRayTrace');
+        beam1.setUniform('4fv','uP', [posX,posY,posZ+0.1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]);
+        beam1.identity().move( .5,-.25,-.5).turnX(Math.PI).turnY(-.4*Math.PI).scale(.2,1,.2);
+
         seaSpace.identity().scale(large);
+        terrain.identity().move(l(seabed_pos)).turnX(-.5*Math.PI).scale(cg.scale([1,1,.5],large));
         /** End of configure large-scale models **/
 
         /**
@@ -134,15 +139,143 @@ export const init = async model => {
          * **/
         terrain_s.identity().move(s(seabed_pos)).turnX(-.5*Math.PI).scale(cg.scale([1,1,.5],small));
         seaSpace_s.identity().scale(small);
-        // the whole thing
-        // smallView.identity().move(0,Math.sin(model.time)/50,.5);
         smallView.hud().move(-.75,-.25,0.);
         /** End of configure small-scale models **/
-        //terrain.setVertices((u,v) => { return [2*u-1,2*v-1,.4 * cg.noise(3*u-model.time,3*v,model.time)];});
+
+        /**
+         * Custom Shaders
+         */
+        model.customShader(`
+        #define ITR 60
+        #define FAR 400.
+        //uniform vec4 time;
+
+        uniform int uRayTrace;
+        //uniform vec4 uC[4], uL[4], uS[4];
+        uniform vec4 uP[4];
+        vec4 light[4], sphere[4];
+
+        mat2 mm2(float a){float c = cos(a), s = sin(a);return mat2(c,-s,s,c);}
+        mat2 m2 = mat2(0.934, 0.358, -0.358, 0.934);
+        float tri(float x){return abs(fract(x)-0.5);}
+
+        float heightmap(vec2 p)
+        {
+            p*=.05;
+            float z=2.;
+            float rz = 0.;
+            for (float i= 1.;i < 4.;i++ )
+            {
+                rz+= tri(p.x+tri(p.y*1.5))/z;
+                z = z*-.85;
+                p = p*1.32;
+                p*= m2;
+            }
+            rz += sin(p.y+sin(p.x*.9))*.7+.3;
+            return rz*5.;
+        }
+        vec3 bary(vec2 a, vec2 b, vec2 c, vec2 p)
+        {
+            vec2 v0 = b - a, v1 = c - a, v2 = p - a;
+            float inv_denom = 1.0 / (v0.x * v1.y - v1.x * v0.y)+1e-9;
+            float v = (v2.x * v1.y - v1.x * v2.y) * inv_denom;
+            float w = (v0.x * v2.y - v2.x * v0.y) * inv_denom;
+            float u = 1.0 - v - w;
+            return abs(vec3(u,v,w));
+        }
+
+        float map(vec3 p)
+        {
+            vec3 q = fract(p)-0.5;
+            vec3 iq = floor(p);
+            vec2 p1 = vec2(iq.x-.5, iq.z+.5);
+            vec2 p2 = vec2(iq.x+.5, iq.z-.5);
+
+            float d1 = heightmap(p1);
+            float d2 = heightmap(p2);
+
+            float sw = sign(q.x+q.z);
+            vec2 px = vec2(iq.x+.5*sw, iq.z+.5*sw);
+            float dx = heightmap(px);
+            vec3 bar = bary(vec2(.5*sw,.5*sw),vec2(-.5,.5),vec2(.5,-.5), q.xz);
+            return (bar.x*dx + bar.y*d1 + bar.z*d2 + p.y + 3.)*.9;
+        }
+
+        float march(vec3 ro, vec3 rd)
+        {
+            float precis = 0.001;
+            float h=precis*2.0;
+            float d = 0.;
+            for( int i=0; i<ITR; i++ )
+            {
+                if( abs(h)<precis || d>FAR ) break;
+                d += h;
+                float res = map(ro+rd*d)*1.1;
+                h = res;
+            }
+            return d;
+        }
+
+        //---------------------------------------------------------------------
+        if (uRayTrace == 1) {
+            float fl = -1. / uProj[3].z; // FOCAL LENGTH OF VIRTUAL CAMERA
+
+            // for (int i = 0 ; i < 4 ; i++) {
+            //    light[i]  = vec4((uView * vec4(uL[i].xyz,0.)).xyz,uL[i].w);
+            //    sphere[i] = vec4((uView * uS[i]).xyz,.25) - vec4(0.,0.,fl,0.);
+            // }
+
+            vec3 V = vec3(0.,10.,uP[0].z);
+            vec3 W = normalize(vec3(2.*vUV.x-1.,1.-2.*vUV.y,-fl));
+            //float tMin = 1000.;
+
+            float rz = march(V,W);
+            if ( rz < FAR )
+            {
+                // Draw Terrain
+                vec3 pos = V+rz*W;
+                //vec3 nor= normal(pos);
+                vec2 e = vec2(-1., 1.)*0.01;
+                vec3 nor = normalize(e.yxx*map(pos + e.yxx) + e.xxy*map(pos + e.xxy) +
+                e.xyx*map(pos + e.xyx) + e.yyy*map(pos + e.yyy) );
+                vec3 ligt = normalize(vec3(-.2, 0.05, -0.2));
+
+                float dif = clamp(dot( nor, ligt ), 0., 1.);
+                float fre = pow(clamp(1.0+dot(nor,W),0.0,1.0), 3.);
+                vec3 brdf = 2.*vec3(0.10,0.11,0.1);
+                brdf += 1.9*dif*vec3(.8,1.,.05);
+                color = vec3(0.15,0.2,0.55);
+                color = color*brdf + fre*0.1*vec3(.7,.8,1.);
+                color = clamp(color,0.,1.);
+                color = pow(color,vec3(.9));
+            }
+
+            else {
+                // Draw Stars
+                float starXf = (atan(W.x, W.z) + 1.57) / 6.28;
+                float starYf = (asin(W.y) / 1.57);
+                int starX = int(starXf * 1000.0 * 16.0);
+                int starY = int(starYf * 250.0 * 16.0);
+                float starTest = float(7 + starX * starY * 13);
+                float value = abs(mod(starTest, 5000.0));
+                if ( value >= .0 && value <= .5)
+                {
+                    color = vec3(value * 1.5 + .5);
+                }
+                else{
+                    opacity = 0.2;
+                }
+            }
+
+        }
+
+        `);
+        /** End of Custom Shaders **/
 
         /**
          * Controller Interactions
          */
+
         // // let vm = clay.views[0].viewMatrix;
         // // let viewPosition = [];
         // // viewPosition.push(vm[12]);
@@ -184,7 +317,6 @@ export const init = async model => {
         // // largeView.identity().move(cg.scale(cg.subtract(iPositions[current_island],[0,-1,0]), -1));
         // largeView.identity().move(cg.subtract([0,-.5,0],l(iPositions[current_island])));
         // locationArrow.identity().move(islandsObj[current_island].getMatrix().slice(12,15)).move(0,.25,0).scale(.025,.025,.025);
-
 
     });
 }
