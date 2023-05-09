@@ -4,21 +4,16 @@ import { rcb } from '../handle_scenes.js';
 import defineOctTube from "./newShapes.js"
 
 const PI = 3.1415926;
-const grid_size = 60;
+const grid_size = 30;
 const center = [0, 1.5, 0];
 const radius = 0.0001;
 const collisionSphereRad = .16;
 const large = 1.25;
 const small = .2;
-const sea_size = [2, 1, 2];
-const seabed_size = [2., .125, 2.];
+const seabed_size = [1., .1, 1.];
 const seabed_pos= [.0, -.95, .0];
-const terrain_pos= [.0, -.8, .0];
 const iPositions = [[-2, 0, 0], [0, 1, 1], [1.2, 2, -1]]; // Island positions
 const lPositions = [[-1, .5, .5], [.6, 1.5, 0]]; // Ladder positions
-
-const innerRadius =.6;
-const outerRadius =.8;
 
 let current_island = 0; // index of the island I'm standing on right now
 let leftTriggerPressed = false;
@@ -92,7 +87,7 @@ export const init = async model => {
     /**
      * Add Primitives for the large-scale view
      * **/
-    // set up large-scale view
+        // set up large-scale view
     let largeView = model.add();
     // add beam
     let beam1 = model.add('tubeY');
@@ -106,20 +101,10 @@ export const init = async model => {
     let seabed = largeView.add();
     clay.defineMesh('myTerrain', createTerrainGrid(grid_size, grid_size));
     // tessellate
-    //for (let i=0; i<9;i++){
+    for (let i=0; i<9;i++){
         seaSpace.add('cube').color(colors[1]).opacity(.3);
         terrain.add('myTerrain').color(colors[4]).texture('../media/textures/sand2.jpg');
         seabed.add('cube').color(colors[4]).opacity(1);
-    //}
-
-    // add sphere for restricting vision
-    let viewSpheres = largeView.add();
-    // using cube geometry now because
-    let inner = viewSpheres.add();
-    //let outer = viewSpheres.add();
-    for (let i = 0; i<6;i++){
-        inner.add('cube').color(colors[1]).opacity(.4);
-        //outer.add('cube').color(colors[1]).opacity(.6);
     }
 
 
@@ -137,12 +122,12 @@ export const init = async model => {
     let seabed_s = smallView.add();
     let pin_s = smallView.add();
     // tessellate
-    //for (let i=0; i<9;i++){
+    for (let i=0; i<9;i++){
         seaSpace_s.add('cube').color(colors[1]).opacity(.35);
         terrain_s.add('myTerrain').color(colors[4]).texture('../media/textures/sand2.jpg');
         seabed_s.add('cube').color(colors[4]).opacity(1);
         pin_s.add('sphere').color(colors[0]);
-    //}
+    }
     /** End of adding small-scale models **/
 
     /**
@@ -163,62 +148,34 @@ export const init = async model => {
         beam1.setUniform('4fv','uP', [posX,posY,posZ+0.1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]);
         beam1.identity().move(cg.scale([.5,-.1,-.5],large) ).turnX(Math.PI).turnY(-.4*Math.PI).scale(cg.scale([.2,1,.2],large));
 
-        // Set sea positions, no tesselation
-        seaSpace.identity().scale(l(sea_size));
-        seabed.identity().move(l(seabed_pos)).scale(l(seabed_size));
-        terrain.identity().move(l(terrain_pos)).turnX(-.5*Math.PI).scale(cg.scale([seabed_size[0],seabed_size[2],seabed_size[1]],large));
-        // set viewSpheres
-        for (let i = 0; i<6;i++){
-            let f = [innerRadius,innerRadius,innerRadius];
-            let F = [outerRadius,outerRadius,outerRadius];
-            f[i%3]=.0001;
-            F[i%3]=.0001;
-            let m = [0,0,0];
-            let M = [0,0,0];
-            if(i>=3){
-                m[i-3] = -innerRadius/2;
-                M[i-3] = -innerRadius/2;
-            }
-            else{
-                m[i] = innerRadius/2;
-                M[i] = innerRadius/2;
-            }
-            inner.child(i).identity().move(m).scale(f);
-            //outer.child(i).identity().move(M).scale(F);
-        }
-        // inner.identity().scale(innerRadius);
-        // outer.identity().scale(outerRadius);
         let vm = clay.views[0].viewMatrix;
         let viewPosition = [];
         viewPosition.push(vm[12]);
         viewPosition.push(vm[13]);
         viewPosition.push(vm[14]);
-        viewSpheres.setMatrix(cg.mInverse(clay.views[0].viewMatrix));
 
-        // set small views no tesselation
-        seaSpace_s.identity().scale(s(sea_size));
-        seabed_s.identity().move(s(seabed_pos)).scale(s(seabed_size));
-        terrain_s.identity().move(s(terrain_pos)).turnX(-.5*Math.PI).scale(cg.scale([seabed_size[0],seabed_size[2],seabed_size[1]],small));
+        //viewPosition[1]=model.time*1;
 
         let centerCube = [0,0,0];
         centerCube[0] = (viewPosition[0] - viewPosition[0]%(large*2))/large*2;
         centerCube[2] = (viewPosition[2] - viewPosition[2]%(large*2))/large*2;
 
-        // for (let i=0; i<9;i++){
-        //     let posX = centerCube[0]+(i%3-1)*large*2;
-        //     let posY = 0;
-        //     let posZ = centerCube[2]+((i-i%3)/3-1)*large*2;
-        //     seaSpace.child(i).identity().move(posX,posY,posZ).scale(large);
-        //     seabed.child(i).identity().move(posX,large*seabed_pos[1]*1.2,posZ).scale(l(seabed_size));
-        //     terrain.child(i).identity().move(posX,large*seabed_pos[1],posZ).turnX(-.5*Math.PI).scale(cg.scale([1,1,.5],large));
-        //     // small view
-        //     let posX_s = centerCube[0]+(i%3-1)*small*2;
-        //     let posY_s = 0;
-        //     let posZ_s = centerCube[2]+((i-i%3)/3-1)*small*2;
-        //     seaSpace_s.child(i).identity().move(posX_s,posY_s,posZ_s).scale(small);
-        //     seabed_s.child(i).identity().move(posX_s,small*seabed_pos[1]*1.2,posZ_s).scale(s(seabed_size));
-        //     terrain_s.child(i).identity().move(posX_s,small*seabed_pos[1],posZ_s).turnX(-.5*Math.PI).scale(cg.scale([1,1,.5],small));
-        // }
+
+        for (let i=0; i<9;i++){
+            let posX = centerCube[0]+(i%3-1)*large*2;
+            let posY = 0;
+            let posZ = centerCube[2]+((i-i%3)/3-1)*large*2;
+            seaSpace.child(i).identity().move(posX,posY,posZ).scale(large);
+            seabed.child(i).identity().move(posX,large*seabed_pos[1]*1.2,posZ).scale(l(seabed_size));
+            terrain.child(i).identity().move(posX,large*seabed_pos[1],posZ).turnX(-.5*Math.PI).scale(cg.scale([1,1,.5],large));
+            // small view
+            let posX_s = centerCube[0]+(i%3-1)*small*2;
+            let posY_s = 0;
+            let posZ_s = centerCube[2]+((i-i%3)/3-1)*small*2;
+            seaSpace_s.child(i).identity().move(posX_s,posY_s,posZ_s).scale(small);
+            seabed_s.child(i).identity().move(posX_s,small*seabed_pos[1]*1.2,posZ_s).scale(s(seabed_size));
+            terrain_s.child(i).identity().move(posX_s,small*seabed_pos[1],posZ_s).turnX(-.5*Math.PI).scale(cg.scale([1,1,.5],small));
+        }
         // let move_s= scale(s(viewPosition),-1)
         pin_s.identity().move(cg.scale(s(viewPosition),-1)).scale(.05);
         // seaSpace.child(0).identity().move(0,0,0).scale(large);
@@ -243,11 +200,7 @@ export const init = async model => {
         #define ITR 60
         #define FAR 400.
         //uniform vec4 time;
-        
-        // For view-restricting sphere
-        uniform int uNoiseTexture;	
-        uniform int uStripeTexture;    
-        
+
         uniform int uRayTrace;
         //uniform vec4 uC[4], uL[4], uS[4];
         uniform vec4 uP[4];
@@ -315,12 +268,6 @@ export const init = async model => {
         }
 
         //---------------------------------------------------------------------
-        if (uNoiseTexture == 1)
-            color *= .5 + noise(3. * vAPos);
-
-        if (uStripeTexture == 1)
-            color *= .5 + .5 * sin(10. * vAPos.x);
-            
         if (uRayTrace == 1) {
             float fl = -1. / uProj[3].z; // FOCAL LENGTH OF VIRTUAL CAMERA
 
